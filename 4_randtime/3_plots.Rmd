@@ -1,0 +1,274 @@
+---
+title: "3_plots"
+output: html_document
+date: "2023-03-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+scen_lab <- data.frame(sero_thresh = c("ann_late","bi_late","0","0.5","0.55","0.6","0.65","0.7","0.75","0.8"),
+                       lab1 = c("Annual","Biennial","No vax","50% thresh","55% thresh", "60% thresh", "65% thresh","70% thresh","75% thresh","80% thresh"),
+                       lab2 = c("Annual","Biennial","No vax","50%","55%", "60%", "65%","70%","75%","80%"))%>%
+  mutate(lab1 = 
+    factor(lab1, levels=c("No vax","50% thresh","55% thresh","60% thresh",
+              "65% thresh","70% thresh","75% thresh","80% thresh","Annual","Biennial")),
+         lab2 = 
+    factor(lab2, levels =c("No vax", "Annual", "Biennial","50%", "55%", "60%","65%","70%","75%","80%")))
+
+
+theme_frame <- theme(panel.background = element_rect(fill = "white", colour = "black",size = 0.7, linetype = "solid"),
+        panel.grid.major = element_line(size = 0.0001, linetype = 'solid',colour = "white"),
+        panel.grid.minor = element_line(size = 0.0001, linetype = 'solid',
+                                colour = "white"))
+
+plot_theme <- theme(plot.title = element_text(size=14),axis.ticks.x = element_blank(), axis.text.x = element_blank(),
+                      axis.text = element_text(size=16),
+                      axis.title = element_text(size=16),
+ #                     strip.text = element_blank(),
+                      legend.text = element_text(size=14),
+                      legend.position = "right",legend.title = element_blank())+
+  theme(plot.margin = unit(c(-0.5,0.2,-0.5,1), "line"))+ theme_frame
+```
+
+```{r}
+tot_pop <- 30066648   ## Took population for 2020 from Mozambique INE (Institute of statistics)
+p_urban <- 0.34 ##From INE
+p_rural <- 1-p_urban
+start.Ns <- c(10884513, 4883969, 7958844, 4900719, 992149, 446454)
+dist <- start.Ns/tot_pop
+
+pop_dist = data.frame(age_ur = c("cr","cu","ar","au","er","eu"),
+                      pop = start.Ns)
+
+old_pop <-  992149+446454
+```
+
+
+##Compiling time series of cases, seroprev and immunity for facet illustration
+##Cases per capita
+```{r}
+
+inc1 <- readRDS("0_res/vaxsero_inc.RDS")
+inc2 <- readRDS("0_res/vaxint_inc.RDS")
+inc<- rbind(inc1, inc2)
+
+inc<-inc%>%filter(sero_thresh %in% c("0","0.5","0.65","0.8","ann_late", "bi_late"))%>%
+      mutate(inc_all = (inc_all/tot_pop)*100)
+
+med_inc<- inc%>%group_by(date,sero_thresh,foi_sp)%>%
+      dplyr::summarise(med = median(inc_all),
+                prob_25 = quantile(inc_all, probs=0.10),
+                prob_75 = quantile(inc_all, probs=0.90))
+
+p1 <- med_inc %>% 
+     left_join(scen_lab)%>%
+    ggplot()+
+    geom_ribbon(aes(x=date, ymin=prob_25, ymax=prob_75, fill="Range"))+
+     theme_bw()+geom_line(aes(x=date, y=med, colour = "Cases \n per 100"), size=0.6)+  
+
+    scale_colour_manual("",values="#EF3B2C")+
+    scale_fill_manual("",values="gray78")+
+  #ggtitle("10-year epidemic projection")+
+  xlab("") + ylab("Cases per 100")+
+  facet_wrap(~lab1,nrow=1)+plot_theme
+p1
+
+png("0_plot/9_inc_strip.png",width = 12,height = 5,units="in",res=400)
+p1
+dev.off()
+
+p1<- p1+theme(strip.text = element_blank())
+p1
+```
+
+## Deaths per capita
+```{r}
+death1 <- readRDS("0_res/vaxsero_death.RDS")
+death2 <- readRDS("0_res/vaxint_death.RDS")
+death<- rbind(death1, death2)%>%filter(sero_thresh %in% c("0","0.5","0.65","0.8","ann_late", "bi_late"))
+
+med_death<- death%>%
+      left_join(scen_lab)%>%
+     mutate(deathpermil = (new_Deaths_tot/tot_pop)*1000000)%>%
+      group_by(date,sero_thresh,lab1)%>%
+      dplyr::summarise(med = median(deathpermil),
+                prob_25 = quantile(deathpermil, probs=0.10),
+                prob_75 = quantile(deathpermil, probs=0.90))
+
+p9 <- med_death %>% ggplot()+
+    geom_ribbon(aes(x=date, ymin=prob_25, ymax=prob_75, fill="Range"))+
+     theme_bw()+geom_line(aes(x=date, y=med, colour = "Cases \n per 100"), size=0.6)+  
+
+    scale_colour_manual("",values="#EF3B2C")+
+    scale_fill_manual("",values="gray78")+
+  #ggtitle("10-year epidemic projection")+
+  xlab("") + ylab("Deaths per million")+
+  facet_wrap(~lab1, nrow=1)+plot_theme
+
+
+p9
+
+png("0_plot/9_death_strip.png",width = 12,height = 5,units="in",res=300)
+p9
+dev.off()
+
+```
+
+
+
+## Sero facet wrap
+```{r}
+sero1 <- readRDS("0_res/vaxsero_sero.RDS")
+sero2 <- readRDS("0_res/vaxint_sero.RDS")
+sero<- rbind(sero1, sero2)
+
+
+thresh_line <- data.frame(scen=c("No vax","50% thresh", "65% thresh","80% thresh","Annual","Biennial"),
+                          sero_thresh = c("0","0.5","0.65","0.8","ann_late","bi_late"),
+                          thresh_num = c(NA,51,66,81,NA,NA))%>%
+              mutate(scen = factor(scen, levels = c("No vax", "50% thresh", "65% thresh", "80% thresh", "Annual","Biennial")))
+
+sero<-sero%>%filter( sero_thresh %in% c("0","0.5","0.65","0.8","ann_late", "bi_late"))
+sero<-sero%>%select(-sero_all)%>%pivot_longer(cols = sero_c:sero_e, names_to = "sero",values_to="val")
+
+sero_med<- sero%>%
+      group_by(date,sero_thresh,sero,foi_sp)%>%
+      dplyr::summarise(med = median(val*100),
+                prob25 = quantile(val*100, probs=0.25),
+                prob75 = quantile(val*100, probs=0.75)) %>%
+      left_join(thresh_line %>%select(scen, sero_thresh))
+
+sero_med <- sero_med%>%mutate(
+              scen = factor(scen, levels = c("No vax", "50% thresh", "65% thresh", "80% thresh", "Annual","Biennial"))
+              )
+sero_range_c <- sero_med %>%filter(sero=="sero_c")
+sero_range_a <- sero_med %>%filter(sero=="sero_a")
+sero_range_e <- sero_med %>%filter(sero=="sero_e")
+                
+
+p2 <-  ggplot()+
+      geom_ribbon(data=sero_range_c,aes(x=date, ymin=prob25, ymax=prob75), fill="gray78",alpha=0.5)+
+      geom_ribbon(data=sero_range_a,aes(x=date, ymin=prob25, ymax=prob75), fill="gray78", alpha=0.5)+
+      geom_ribbon(data=sero_range_e,aes(x=date, ymin=prob25, ymax=prob75), fill="gray78", alpha=0.5)+
+      geom_line(data=sero_med,aes(x=date, y = med, col = sero),size=1)+       
+       geom_hline(data=thresh_line,aes(yintercept=thresh_num),linetype="dashed",size=0.6)+
+      facet_wrap(~scen, nrow=1)+
+      ylim(0,100) +theme_bw()+
+      scale_color_manual(values = c("#4292C6","#C6DBEF","#08306B"),
+                                   labels=c("Adult",
+                                            "Child",
+                                            "Older \nadults"))+
+        xlab("")+ plot_theme+
+                theme(legend.text = element_text(size=12),
+                       strip.text = element_text(size=16),
+                      plot.margin = unit(c(0,0,-0.5,1), "line"))+
+ 
+  ylab("Seroprevalence\n by age(%)")
+
+
+
+png("0_plot/9_sero_strip.png",width = 12,height = 5,units="in",res=400)
+p2
+dev.off()
+p2
+```
+
+```{r}
+imm1 <- readRDS("0_res/vaxsero_imm_med.RDS")
+imm2 <- readRDS("0_res/vaxint_imm_med.RDS")
+
+imm_med<- rbind(imm1,imm2)%>%
+            filter(sero_thresh%in%c("0","0.5","0.65","0.8","ann_late", "bi_late"))
+
+imm_med <- imm_med %>%
+            left_join(data.frame(age_grp = c("a","c","e"),
+                                  age_lab = c("Adult","Child","Older adult")))%>%
+            #left_join(data.frame(sero_thresh = c("0","0.5","0.6","0.7","0.8","ann_late","bi_late"),
+             #                     sero_lab = c("No vax","50% thresh", "60% thresh", "70% thresh","80% thresh","Annual","Biennial")))%>%
+            left_join(data.frame(sero_thresh = c("0","0.5","0.65","0.8","ann_late","bi_late"),
+                                 sero_lab = c("No vax","50% thresh", "65% thresh", "80% thresh","Annual","Biennial")))%>%
+            mutate(age_lab = factor(age_lab, levels=c("Child","Adult","Older adult")),
+                   sero_lab = factor(sero_lab, levels =  c("No vax","50% thresh", "65% thresh", "80% thresh","Annual","Biennial")))
+
+
+
+
+##Immune landscape for older adults only
+p4 <- imm_med%>%
+          filter(age_grp == "e") %>%
+          ggplot(aes(x=date, y=med, fill=imm_cat))+
+          geom_col(aes(x=date, y=med, fill=imm_cat, width=1), position="fill")+
+          scale_fill_manual(values = c("#FFFFCC",
+                                       "#35978F","#80CDC1","#C7EAE5",
+                                       brewer.pal(9, "PuBu")[c(7,6,5,4,3,2)]))+
+          facet_wrap(~sero_lab, nrow=1)+theme_classic()+
+          xlab("Year") + ylab("Population proportion")+
+          plot_theme+
+    theme(axis.text.x = element_text(angle=30, vjust=1.2, hjust=1, size=16),
+                      legend.text = element_text(size=12),
+                      plot.margin = unit(c(-0.5,0.2,-1,1), 'lines'))
+
+
+p4
+
+
+png("0_plot/9_imm_stripold.png",width = 13,height = 3,units="in",res=400)
+p4
+dev.off()
+
+p4<- p4+theme(strip.text = element_blank())
+p4
+
+```
+
+
+
+```{r}
+p3 <-ggarrange(p2,p1,p4,ncol=1, align="v")
+
+p11o<- readRDS("0_plot/0_plot_nnt_e.RDS")+ggtitle("No. doses needed to avert one death")+
+        theme(plot.title = element_text(size=16),axis.text.y = element_text(size=16), axis.text.x = element_text(size=16), axis.title = element_text(size=16))
+p12o<- readRDS("0_plot/0_plot_deaths_e.RDS")+
+        theme(plot.title = element_text(size=16),axis.text.y = element_text(size=16), axis.text.x = element_text(size=16),axis.title.x = element_text(size=16))
+nnt_trade <- readRDS("0_plot/0_nnt_death_trade.RDS")+theme(plot.title = element_text(size=16), axis.text = element_text(size=16),axis.title = element_text(size=16))
+png("0_plot/1_fig1_main0.7.png", width = 15,height = 13,units="in",res=600)
+as_ggplot(arrangeGrob(p3, p11o,p12o,nnt_trade, nrow=7,ncol =3, 
+                      layout_matrix=rbind(c(1,1), c(1,1),c(1,1),c(1,1),c(2,3,4),c(2,3,4),c(2,3,4))))
+dev.off()
+
+p12o
+
+readRDS("0_plot/0_plot_deaths_e.RDS")
+readRDS("0_plot/0_plot_deaths_e.RDS")+theme(plot.title = element_text(size=16),axis.text.y = element_text(size=19), axis.title = element_text(size=16))
+```
+
+
+```{r}
+##Immune landscape for all age groups
+p3 <- imm_med%>%
+          #left_join(scen_lab)%>%
+          ggplot(aes(x=date, y=med, fill=imm_cat))+
+          geom_col(aes(x=date, y=med, fill=imm_cat, width=1), position="fill")+
+          scale_fill_manual(values = c("#FFFFCC",
+                                       "#35978F","#80CDC1","#C7EAE5",
+                                       brewer.pal(9, "PuBu")[c(7,6,5,4,3,2)]))+
+          facet_grid(rows=vars(sero_lab),cols=vars(age_lab))+theme_classic()+
+          xlab("Year") + ylab("Population proportion")+
+          #theme(panel.margin = unit(0, "lines")) +
+          #theme(plot.margin = unit(c(0,0,0,0), "lines"))+
+          theme(axis.text = element_text(size=13),
+                      axis.title = element_text(size=15),
+                     strip.text = element_text(size=15))
+
+p3
+png("0_plot/9_imm_strip_simp.png",width = 12,height = 14,units="in",res=400)
+p3
+dev.off()
+
+```
+
+

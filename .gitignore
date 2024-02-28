@@ -1,0 +1,9 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+1_main/0_res/vaxint_sero.RDS
+3_foisweep/0_res/vaxsero_sero.RDS
+3_foisweep/0_res/vaxsero_inc.RDS
+2_kappasweep/0_res/vaxsero_sero.RDS
+

@@ -1,0 +1,509 @@
+---
+title: "3_plot_nnttrade"
+output: html_document
+date: "2024-02-19"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(deSolve)
+library(ggplot2)
+library(tidyr)
+library(ggpubr)
+library(ggmatplot)
+library(RColorBrewer)
+library(gridExtra)
+library(cowplot)
+library(viridis)
+```
+
+
+
+# First section on NNTs
+```{r}
+nnt_vaxsero   <- readRDS("0_res/vaxsero_nnt.RDS")
+nnt_vaxint  <- readRDS("0_res/vaxint_nnt.RDS") 
+
+
+nnt_main    <- bind_rows(nnt_vaxsero,nnt_vaxint)
+
+no_vax <- nnt_vaxsero%>%
+          filter(sero_thresh==0)%>%
+          select(sweep_unique, kappa, omega2, omega4, foi_sp,num_deaths,num_deaths_e)%>%
+          dplyr::rename(.,num_deaths_novax=num_deaths)%>%
+          dplyr::rename(.,num_deaths_e_novax=num_deaths_e)
+
+
+```
+
+
+
+```{r}
+tot_pop <- 30066648   ## Took population for 2020 from Mozambique INE (Institute of statistics)
+p_urban <- 0.34 ##From INE
+p_rural <- 1-p_urban
+start.Ns <- c(10884513, 4883969, 7958844, 4900719, 992149, 446454)
+dist <- start.Ns/tot_pop
+
+pop_dist = data.frame(age_ur = c("cr","cu","ar","au","er","eu"),
+                      pop = start.Ns)
+
+old_pop <-  992149+446454
+```
+
+```{r}
+scen_lab <- data.frame(sero_thresh = c("ann_late","bi_late", 
+                                       "0","0.5","0.55","0.6","0.65","0.7","0.75","0.8"),
+                       lab1 = c("Annual","Biennial",
+                                "No vax","50% thresh","55% thresh", "60% thresh", "65% thresh","70% thresh","75% thresh","80% thresh"),
+                       lab2 = c("Annual","Biennial",
+                                "No vax","50%","55%", "60%", "65%","70%","75%","80%"))%>%
+  mutate(lab1 = 
+    factor(lab1, levels=c("No vax","50% thresh","55% thresh","60% thresh",
+              "65% thresh","70% thresh","75% thresh","80% thresh",
+              "Annual","Biennial")),
+         lab2 = 
+    factor(lab2, levels =c("No vax",  "Annual","Biennial",
+                           "50%", "55%", "60%","65%","70%","75%","80%")))
+
+```
+
+
+## Summary table
+```{r}
+nnt_main<- nnt_main%>%
+            left_join(no_vax, by =c("sweep_unique","kappa","omega2","omega4","foi_sp"))
+
+
+nnt_main <- nnt_main %>% 
+            mutate(deaths_averted  = num_deaths_novax  -num_deaths,
+                   deaths_averted_e= num_deaths_e_novax-num_deaths_e,
+                   nnt=num_dose/deaths_averted,
+                   nnt_e = num_dose/deaths_averted_e,
+                   prop_red_e = deaths_averted_e/num_deaths_e_novax,
+                   prop_red   = deaths_averted/num_deaths_novax,
+                   dt_e_per100000 = (num_deaths_e/old_pop)*100000
+                   
+                   )
+              
+
+tab1 <- nnt_main%>%
+  #filter(nnt>0)%>%
+  #filter(!sweep_unique %in% nnt_neg_rem)%>%
+  group_by(sero_thresh,foi_sp)%>%
+  dplyr::summarise(nnt_med=median(nnt,na.rm = T),
+            nnt_25 = quantile(nnt,probs=0.025, na.rm = T),
+            nnt_75 = quantile(nnt, probs=0.975, na.rm=T),
+            nnt_e_med = median(nnt_e, na.rm=T),
+            nnt_e_25 = quantile(nnt_e,probs=0.025, na.rm = T),
+            nnt_e_75 = quantile(nnt_e, probs=0.975, na.rm=T),
+            num_camp_med = median(num_campaigns, na.rm=T),
+            num_camp_25 = quantile(num_campaigns, probs=0.025, na.rm=T),
+            num_camp_75 = quantile(num_campaigns, probs=0.975, na.rm=T),
+            dt_avert_e_med = median(deaths_averted_e, na.rm=T),
+            dt_avert_e_25 = quantile(deaths_averted_e, probs=0.025, na.rm=T),
+            dt_avert_e_75 = quantile(deaths_averted_e, probs=0.975, na.rm=T),
+            dt_avert_med = median(deaths_averted, na.rm=T),
+            dt_avert_25 = quantile(deaths_averted, probs=0.025, na.rm=T),
+            dt_avert_75 = quantile(deaths_averted, probs=0.975, na.rm=T),
+            dt_med = median(num_deaths, na.rm=T),
+            dt_25 = quantile(num_deaths, probs=0.025, na.rm=T), 
+            dt_75 = quantile(num_deaths, probs=0.975, na.rm=T),
+            dt_e_med = median(num_deaths_e, na.rm=T),
+            dt_e_25 = quantile(num_deaths_e, probs=0.025, na.rm=T), 
+            dt_e_75 = quantile(num_deaths_e, probs=0.975, na.rm=T),
+            dt_e_percap_med = median(dt_e_per100000,na.rm=T),
+            dt_e_percap_25 = quantile(dt_e_per100000, probs=0.025, na.rm=T),            
+            dt_e_percap_75 = quantile(dt_e_per100000, probs=0.975,na.rm=T),            
+            firstvax_med =median(firstvax, na.rm=T),
+            firstvax_25 = quantile(firstvax, probs=0.025, na.rm=T),
+            firstvax_75 = quantile(firstvax, probs=0.975, na.rm=T),
+            prop_red_med    = median(prop_red),
+            prop_red_25 = quantile(prop_red, probs=0.025, na.rm=T),
+            prop_red_75 = quantile(prop_red, probs=0.975, na.rm=T),
+            prop_red_e_med    = median(prop_red_e),
+            prop_red_e_25 = quantile(prop_red_e, probs=0.025, na.rm=T),
+            prop_red_e_75 = quantile(prop_red_e, probs=0.975, na.rm=T))%>%
+            
+            #nnt_med_p2 = median(nnt_post2, na.rm=T),
+            #nnt_25_p2 = quantile(nnt_post2, probs=0.25, na.rm=T),
+            #nnt_75_p2 = quantile(nnt_post2, probs=0.75, na.rm=T)) 
+  
+  mutate(NNT = paste(round(nnt_med, digits=0)," (", round(nnt_25, digits=0),"-",round(nnt_75, digits=0),")", sep=""),
+         NNT_e = paste(round(nnt_e_med, digits=0)," (", round(nnt_e_25, digits=0),"-",round(nnt_e_75, digits=0),")", sep=""),
+         NumCampaign = paste(round(num_camp_med, digits=0)," (", round(num_camp_25, digits=0),"-",round(num_camp_75,digits=0),")", sep=""),
+         DeathsAverted = paste(round(dt_avert_med, digits=0)," (", round(dt_avert_25, digits=0),"-",round(dt_avert_75, digits=0),")", sep=""),
+         DeathsAverted_e = paste(round(dt_avert_e_med, digits=0)," (", round(dt_avert_e_25, digits=0),"-",round(dt_avert_e_75, digits=0),")", sep=""),
+         Deaths = paste(round(dt_med, digits=0)," (", round(dt_25, digits=0),"-",round(dt_75, digits=0),")", sep=""),
+         Deaths_e = paste(round(dt_e_med, digits=0)," (", round(dt_e_25, digits=0),"-",round(dt_e_75, digits=0),")", sep=""),
+
+         FirstVaxTime = paste(round(firstvax_med)," (",round(firstvax_25),"-",round(firstvax_75),")", sep=""),
+         prop_red_e_med = paste(round(prop_red_e_med*100, digits=0), "%", sep=""),
+         prop_red_med = paste(round(prop_red_med*100, digits=0), "%"))%>%
+
+  #left_join(scen_lab, by="scen")%>%
+  select( sero_thresh,foi_sp,NNT_e, DeathsAverted_e,prop_red_e_med, Deaths_e, NNT, DeathsAverted,Deaths, NumCampaign, DeathsAverted, Deaths,FirstVaxTime)
+
+write.csv(tab1, "0_plot/1_nnt_95_v2.csv")
+## res for children and adults
+nnt_main%>%
+  group_by(sero_thresh)%>%
+  dplyr::summarise(
+            prop_red_med    = median(prop_red),
+            prop_red_25 = quantile(prop_red, probs=0.025, na.rm=T),
+            prop_red_75 = quantile(prop_red, probs=0.975, na.rm=T),
+            prop_red_e_med    = median(prop_red_e),
+            prop_red_e_25 = quantile(prop_red_e, probs=0.025, na.rm=T),
+            prop_red_e_75 = quantile(prop_red_e, probs=0.975, na.rm=T))
+
+tab1
+```
+
+
+
+## NNT and deaths for elderly only
+```{r}
+pal <- c("#201321FF","#3C3162FF","#3B589AFF","#3485A5FF","#3CB2ADFF","#81D8B0FF","#DEF5E5FF","#FCFDBFFF","#FDE4A6FF")
+pal1 <- c("#201321FF","#3C3162FF","#3B589AFF","#3485A5FF","#3CB2ADFF","#81D8B0FF","#DEF5E5FF","#FDE4A6FF","#FECC8FFF")
+pal2 <-  c("#201321FF","#3C3162FF","#3B589AFF","#3485A5FF","#81D8B0FF","#FFFFCC","#FFEDA0","#FDE4A6FF","#FECC8FFF","#FEC44F","#FE9929") 
+
+
+theme_frame <- theme(panel.background = element_rect(fill = "white", colour = "black",size = 0.7, linetype = "solid"),
+        panel.grid.major = element_line(size = 0.0001, linetype = 'solid',colour = "white"),
+        panel.grid.minor = element_line(size = 0.0001, linetype = 'solid',
+                                colour = "white"))
+
+plot_theme <- plot_theme <- theme(plot.title = element_text(size=14),axis.ticks.x = element_blank(), axis.text.x = element_blank(),
+                      axis.text = element_text(size=11),
+                      axis.text.y = element_text(size=11),
+                      axis.title = element_text(size=12),
+ #                     strip.text = element_blank(),
+                      legend.text = element_text(size=12),
+                      legend.position = "right",legend.title = element_blank())+
+  theme(plot.margin = unit(c(-0.5,0.2,-0.5,1), "line"))+ theme_frame
+```
+
+
+```{r}
+p11o <- nnt_main%>%
+       left_join(scen_lab)%>%
+       filter(sero_thresh!="0"&!is.na(lab2))%>%  
+  ggplot(aes(x=lab2, y=nnt_e, fill=lab2, text=lab1))+
+  #ggplot(aes(x=sero_thresh, y=nnt_e, fill=sero_thresh, text=sero_thresh))+
+  geom_violin(width=1, size=0.2)+
+  scale_fill_manual(values = rev(pal1))+
+  scale_color_manual(values=rev(pal1))+
+  ylim(0,2000)+
+ theme_classic()+
+  theme(axis.text.x = element_text(vjust=0.8, hjust=0.5, size=13),
+        axis.text.y = element_text(size=13),
+        axis.title = element_text(size=13),
+        plot.title = element_text(size=13),
+        legend.position="none")+
+  theme_frame+
+  coord_flip()+
+  ylab("No. of doses needed to avert one death")+xlab("Vaccination timing")+
+  ggtitle("Number of vaccine doses needed to avert one death")
+
+##Age-specific death distribution by vax scenario
+age_death <- nnt_main %>%
+  left_join(scen_lab)%>%
+  filter(!is.na(lab2))%>%  
+  select(lab2, num_deaths_c:num_deaths_e)%>%
+  pivot_longer(cols=num_deaths_c:num_deaths_e, names_to="var", values_to="val")%>%
+  group_by(lab2,var)%>%
+  dplyr::summarise(death_med=median(val),
+            death_25 = quantile(val, probs=0.25),
+            death_75 = quantile(val, probs=0.75))%>%
+  left_join(data.frame(var =c("num_deaths_c","num_deaths_a","num_deaths_e"),
+                       age_grp = c("Child","Adult","Adult >50 yr")))%>%
+  mutate(age_grp = factor(age_grp, level=c("Adult >50 yr","Adult","Child")))
+
+death_e <- age_death %>%
+        filter(var=="num_deaths_e")
+
+p12o <- death_e%>%
+  filter(var=="num_deaths_e")%>%
+  ggplot()+
+  #geom_col(aes(x=lab2,y=death_med), fill="#006D2C", width=0.7, alpha=0.55)+
+  geom_col(aes(x=lab2,y=death_med,fill=lab2), width=0.7, alpha=0.8)+
+  scale_fill_manual(values = c("gray",rev(pal1)))+
+  geom_errorbar(data=death_e, aes(x=lab2, ymin=death_25, ymax=death_75), width=0.3, size=0.7, color="gray50")+
+  coord_flip()+
+ theme_classic()+
+ylab("Deaths")+xlab("")+ggtitle("10-yr cumulative deaths (older adults)")+
+    theme(legend.title = element_blank(), 
+           legend.position = "none",
+           plot.title = element_text(size=14),
+                      axis.text.x = element_text(size=13),
+                      axis.text.y = element_text(size=13, hjust=1),
+                      axis.title = element_text(size=13))+
+    theme_frame
+
+png("0_plot/9_res_waninghi_older.png", width = 12,height = 4,units="in",res=500)
+as_ggplot(arrangeGrob(p11o,p12o,nrow=1,ncol =6, layout_matrix=rbind(c(1,1,1,2,2,2))))
+dev.off()
+
+saveRDS(p11o,"0_plot/0_plot_nnt_e.RDS")  ##save plot objects to be read into the other rmd
+saveRDS(p12o,"0_plot/0_plot_deaths_e.RDS")
+
+```
+
+
+```{r}
+lab = c("50%","55%", "60%", "65%","70%","75%","80%","Annual","Biennial")
+pal3 <- c("#DEF5E5FF","#81D8B0FF","#3CB2ADFF","#3485A5FF","#3B589AFF","#3C3162FF","#201321FF","#FECC8FFF","#FDE4A6FF")
+
+
+##Main one for output
+nnt_death_trade <- nnt_main %>%
+  filter(!sero_thresh%in%c("0","ann_435","bi_435","ann_800","bi_800"))%>%
+  ggplot(aes(x=num_deaths_e, y=nnt_e, col=sero_thresh))+
+  scale_fill_manual(values = pal3,labels = lab)+
+  scale_color_manual(values= pal3,labels = lab)+
+  #scale_color_viridis(discrete=T, option="G", direction=-1, alpha=1)+
+  #scale_fill_viridis(discrete=T, option="G", direction=-1, alpha=0.5)+
+  geom_point()+
+  xlim(0,20000)+ylim(0,2000)+
+  xlab("Number of deaths among older adults")+ylab("NNT among older adults")+
+  theme_classic() +theme_frame+ 
+  theme(legend.title = element_blank(), 
+        legend.position = "none",
+        axis.text = element_text(size=12),
+        axis.title=element_text(size=13),
+        plot.title=element_text(size = 14))+
+        ggtitle("Tradeoff in efficiency and no. deaths")
+  
+saveRDS(nnt_death_trade,"0_plot/0_nnt_death_trade.RDS")
+
+png("0_plot/9_res_waninghi_older.png", width = 12,height = 4,units="in",res=500)
+as_ggplot(arrangeGrob(p11o,p12o,nrow=1,ncol =6, layout_matrix=rbind(c(1,1,1,2,2,2))))
+dev.off()
+
+```
+
+
+## NNT and age-specific deaths for all age groups
+```{r}
+#png("nnt_box_Rrand_lo_violin.png", width = 10,height = 5,units="in",res=400)
+p11 <- nnt_main%>%
+        left_join(scen_lab)%>%
+        filter(sero_thresh!="0"&!is.na(lab2))%>%
+        filter(nnt>=-500 &nnt<=15000)%>%
+        ggplot(aes(x=factor(lab2), y=nnt, fill=lab2, text=lab2))+
+        geom_violin(width=1, size=0.2)+
+        scale_fill_manual(values = rev(pal1))+
+        scale_color_manual(values=rev(pal1))+
+        #scale_fill_viridis(discrete=T, option="G")+
+        #scale_color_viridis(discrete=T, option="G")+
+        theme_classic()+
+        theme(axis.text.x = element_text(vjust=0.8, hjust=0.5, size=13),
+              axis.text.y = element_text(size=13),
+              axis.title = element_text(size=13),
+              plot.title = element_text(size=13),
+              legend.position="none")+
+        theme_frame+
+        coord_flip()+
+        ylab("No. of doses needed to avert one death")+xlab("Vaccination timing")+
+        ggtitle("Number of vaccine doses needed to avert one death")
+#dev.off()
+
+##Age-specific death distribution by vax scenario
+age_death <- nnt_main %>%
+  left_join(scen_lab)%>%
+  filter(!is.na(lab2))%>% 
+  select(lab2, num_deaths_c:num_deaths_e)%>%
+  pivot_longer(cols=num_deaths_c:num_deaths_e, names_to="var", values_to="val")%>%
+  group_by(lab2,var)%>%
+  dplyr::summarise(death_med=median(val),
+            death_25 = quantile(val, probs=0.25),
+            death_75 = quantile(val, probs=0.75))%>%
+  left_join(data.frame(var =c("num_deaths_c","num_deaths_a","num_deaths_e"),
+                       age_grp = c("Child","Adult","Adult >50 yr")))%>%
+  mutate(age_grp = factor(age_grp, level=c("Adult >50 yr","Adult","Child")))
+
+all_death <- nnt_main %>%
+        left_join(scen_lab)%>%
+        #filter(!scen%in%c("No vax"))%>%
+        group_by(lab2)%>%
+        dplyr::summarise(death_25 = quantile(num_deaths, probs=0.25),
+                  death_75 = quantile(num_deaths, probs=0.75))
+
+p12 <- age_death%>%
+  ggplot()+
+  geom_col(aes(x=lab2,y=death_med, fill=age_grp), position= "stack", width=0.7, alpha=0.5)+
+  scale_fill_manual(values = c("#006D2C","#66C2A4","#CCECE6"),
+                     labels=c("Older \nadults","Adult","Child"))+
+geom_errorbar(data=all_death, aes(x=lab2, ymin=death_25, ymax=death_75), width=0.3, size=0.7, color="gray50")+
+  coord_flip()+
+ theme_classic()+
+            ylab("Deaths")+xlab("")+ggtitle("10-yr cumulative deaths")+
+          theme(plot.title = element_text(size=12),
+                      axis.text.x = element_text(size=11),
+                      axis.text.y = element_text(size=11, hjust=1),
+                      axis.title = element_text(size=12),
+                     legend.position="right", legend.title = element_blank(), legend.text = element_text(size=11))+ theme_frame
+  #theme(plot.margin = unit(c(-0.5,0.5,0,-0.7), 'lines'))+ 
+
+png("0_plot/9_res_waninghi_all.png", width = 12,height = 5,units="in",res=500)
+as_ggplot(arrangeGrob(p11,p12,nrow=1,ncol =6, layout_matrix=rbind(c(1,1,1,2,2,2))))
+dev.off()
+```
+
+
+
+##Explore something with time of first vax, deaths averted and NNT
+```{r}
+pal4 <- c("#DEF5E5FF","#DEF5E5FF","#81D8B0FF","#3CB2ADFF","#3485A5FF","#3B589AFF","#3C3162FF","#201321FF",
+          "#FECC8FFF","#FECC8FFF","#FECC8FFF","#FECC8FFF","#FECC8FFF","#FECC8FFF","#FECC8FFF","#FECC8FFF",
+          "#FDE4A6FF","#FDE4A6FF","#FDE4A6FF","#FDE4A6FF","#FDE4A6FF","#FDE4A6FF","#FDE4A6FF","#FDE4A6FF")
+
+
+nnt_int_med<- nnt_main%>%
+   filter(!sero_thresh%in%c("0","0.5","0.55","0.6","0.65","0.7","0.75","0.8"))%>%
+   group_by(sero_thresh)%>%
+   dplyr::summarise(num_deaths_e=median(num_deaths_e),
+                    nnt_e       =median(nnt_e),
+                    firstvax   = median(firstvax))
+
+nnt_main2 <- nnt_main%>%
+   filter(sero_thresh%in%c("0","0.5","0.55","0.6","0.65","0.7","0.75","0.8"))%>%
+   bind_rows(nnt_int_med)
+
+nnt_main2%>%
+   ggplot(aes(x=firstvax, y=num_deaths_e, col=sero_thresh))+
+    scale_color_manual(values = pal4)+
+  #scale_fill_manual(values = pal3,labels = lab)+
+  #scale_color_manual(values= pal3,labels = lab)+
+  #scale_color_viridis(discrete=T, option="G", direction=-1, alpha=1)+
+  #scale_fill_viridis(discrete=T, option="G", direction=-1, alpha=0.5)+
+  geom_point()
+
+nnt_main2%>%
+   ggplot(aes(x=firstvax, y=nnt_e, col=sero_thresh))+
+  scale_color_manual(values = pal4)+
+  #scale_color_manual(values= pal3,labels = lab)+
+  #scale_color_viridis(discrete=T, option="G", direction=-1, alpha=1)+
+  #scale_fill_viridis(discrete=T, option="G", direction=-1, alpha=0.5)+
+  geom_point()
+
+```
+
+
+## Yearly cumulative NNT
+```{r}
+viridis(20, alpha = 1, begin = 0, end = 1, direction = 1, option = "A")
+pal1 <- c("#201321FF","#3C3162FF","#3B589AFF","#3485A5FF","#3CB2ADFF","#81D8B0FF","#DEF5E5FF","#FDE4A6FF","#FECC8FFF")
+
+nnt_yr <- readRDS("0_res/orig/vaxsero_nntyr.RDS")
+nnt1_yr<-readRDS("0_res/orig/vaxint_nntyr.RDS")
+
+nnt_yr%>%filter(sweep_unique==33&sero_thresh=="0.8")
+nnt_yr%>%filter(sweep_unique==33&sero_thresh=="0.5")
+
+```
+
+```{r}
+
+nnt_yr <- nnt_yr %>%
+  #filter(yr!=10)%>%
+  group_by(sero_thresh, sweep_unique)%>%
+  replace(is.na(.),0)%>%
+  mutate(num_dose_roll = cumsum(num_dose))
+nnt_yr_novax <- nnt_yr %>%filter(sero_thresh=="0")%>%
+                  ungroup()%>%
+                  select(sweep_unique, yr, new_Deaths_e_roll, new_Deaths_tot_roll)%>%
+                  dplyr::rename("new_Deaths_e_roll_novax"="new_Deaths_e_roll")%>%
+                  dplyr::rename("new_Deaths_tot_roll_novax"="new_Deaths_tot_roll")
+
+nnt_yr <- nnt_yr %>% left_join(nnt_yr_novax, by=c("sweep_unique"="sweep_unique","yr"="yr"))%>%
+            mutate(nnt_e_yr = num_dose_roll/(new_Deaths_e_roll_novax-new_Deaths_e_roll),
+                   nnt_tot_yr = num_dose_roll/(new_Deaths_tot_roll_novax-new_Deaths_tot_roll))%>%
+            filter(sero_thresh!="0")
+
+nnt1_yr <- nnt1_yr %>%
+          #filter(yr!=10)%>%
+          group_by(sero_thresh, sweep_unique)%>%
+          replace(is.na(.),0)%>%
+          mutate(num_dose_roll = cumsum(num_dose))%>%
+            left_join(nnt_yr_novax, by=c("sweep_unique"="sweep_unique", "yr"="yr"))%>%
+            mutate(nnt_e_yr = num_dose_roll/(new_Deaths_e_roll_novax-new_Deaths_e_roll),
+                   nnt_tot_yr = num_dose_roll/(new_Deaths_tot_roll_novax-new_Deaths_tot_roll))
+  
+nnt_yr_med <- nnt_yr %>%
+  mutate(sero_thresh=as.character(sero_thresh))%>%
+  rbind(nnt1_yr)%>%
+  mutate(yr1=yr+1)%>%
+  group_by(yr1,yr, sero_thresh)%>%
+  dplyr::summarise(med = median(nnt_e_yr, na.rm=T))%>%
+   mutate(sero_thresh = factor(sero_thresh,
+          levels = c("ann_late","bi_late","0.5","0.55","0.6", "0.65","0.7","0.75","0.8")))%>%
+  arrange(sero_thresh)
+
+nnt_yr_med
+
+nnt_yr_trade<-nnt_yr_med%>%  
+  filter(!is.na(sero_thresh))%>%
+  ggplot(aes(x=yr, y=med, col=sero_thresh))+
+  #scale_fill_manual(values = rev(pal1),labels = lab)+
+  #scale_color_manual(values=rev(pal1),labels = lab)+
+  scale_fill_manual(values = rev(pal1))+
+  scale_color_manual(values=rev(pal1))+
+  scale_x_continuous(breaks = seq(from = 1, to = 10, by = 1))+
+  xlim(1,10)+
+  coord_trans(y = "log10")+
+  #ylim(0,4000)+
+  #scale_color_viridis(discrete=T, option="G", direction=-1, alpha=1)+
+  geom_line(size=1, linetype="dashed")+
+  geom_point(size=2.5)+theme_bw()+
+  theme_bw()+theme(legend.title=element_blank(),
+        #legend.position = "none",
+        axis.text = element_text(size=12),
+        axis.title=element_text(size=13),
+        plot.title=element_text(size = 14))+
+  xlab("Year")+ylab("Cumulative NNT (median)")+
+  ggtitle("Tradeoffs in efficiency over time")
+
+#png("0_plot/3_nnt_trade.png", width = 11,height = 4,units="in",res=600)
+as_ggplot(arrangeGrob( nnt_yr_trade, nnt_death_trade,nrow=2,ncol =2, 
+                      layout_matrix=rbind(c(1,2), c(1,2))))
+#dev.off()
+
+```
+
+
+
+```{r}
+
+## Other explorations
+nnt_main <- nnt_main%>%mutate(yr = firstvax/365)
+                     
+p10 <- nnt_main%>%
+    filter(!sero_thresh%in%c("0","ann_late","bi_late","ann_435","bi_435","ann_800","bi_800"))%>%
+  #filter(!scen%in%c("No vax","ann_late","bi_late"))%>%
+  ggplot(aes(x=yr, y=nnt, col=sero_thresh))+
+  scale_color_manual(values = rev(pal1)[3:9])+
+  ylim(0,3000)+
+  geom_point()+
+  #geom_point(aes(x=300/365,y=1941),colour="red",size=6, shape=18)+
+  #geom_point(aes(x=300/365,y=1443),colour="orange",size=6, shape=18)+
+  geom_point(aes(x=300/365,y=946),colour="orange",size=6, shape=18)+
+  geom_point(aes(x=300/365,y=674),colour="#FDE4A6FF",size=6, shape=18)+
+  geom_hline(yintercept =946, color="orange", linetype="dashed", size=0.8)+
+  geom_hline(yintercept= 674, color="#FDE4A6FF",linetype="dashed",size=0.8)+
+  ylab("Number needed to treat (NNT) among older adults")+xlab("Year of first campaign")+
+  theme_bw()
+
+png("0_plot/scatter_yrfirst_nnt.png", width = 6,height = 4,units="in",res=300)
+p10
+dev.off()
+
+
+```
+
