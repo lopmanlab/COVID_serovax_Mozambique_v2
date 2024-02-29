@@ -5,20 +5,25 @@ This repository contains the updated code used in simulations comparing serologi
 ## Main forward model simulation and analysis
 Code for the main modeling work and analysis can be found in [0_model](https://github.com/lopmanlab/COVID_serovax_Mozambique_v2/tree/main/0_model). The 10-year forward model simulations were run using a High Performance Cluster. Relevant pieces of the main code are detailed in the table below. For the serologically-triggered vaccination scenarios, vaccination was implemented using an event function in the model setup through the DeSolve package framework for solving ODEs. For fixed-time interval vaccination, the event function was removed and vaccination was implemented directly in the model code to avoid accidental triggering of vaccination. While the codes are separated, all other code structure, initial conditions and parameters were the same between the two vaccination scenarios. Model outputs of deaths, cases, seroprevalence over time, vaccine doses from each model run from the randomly sampled annual Rts were then summarized and interim results are made available in [0_res](1_main/0_res). These results can be further summarized for each vaccine scenario (seroprevalence triggeres of 50%-80% and biennial and annual fixed-time vaccinations) into medians and ranges which are used to produce tables and figures estimating vaccine impact. 
 
+### Description of main model code and processing of raw model outputs
+The model code and processing pipeline is used for all of the scenario analysis detailed in the subsequent sections. 
+
 | File                   | Description |Category|
 | ---------------------- | ------------- |------------- |
-| [0_sweep_sero](2_main_simulation/0_sweep_sero.RDS)           |Data frame of model parameters for serologically-triggered vax scenarios| Sero-trigger model sims|
-| [0c_model_setup](2_main_simulation/0c_model_setup.R)        | Setup model with seroprevalence vax trigger | Sero-trigger model sims|
-| [0d_model_code_sero](2_main_simulation/0d_model_code_sero.R) | Model code function without fixed time vax| Sero-trigger model sims|
-| [1_sweep_int](2_main_simulation/1_sweep_int.RDS)| Data frame of model parameters for fixed time interval vax scenarios| Fixed-interval model sims|
-| [1c_model_setup](2_main_simulation/1c_model_setup.R)         |Setup model without seroprevalence vax trigger |Fixed-interval model sims|
-| [1d_model_code_int](2_main_simulation/1d_model_code_int.R)      | Model code function with fixed time vax|Fixed-interval model sims|
-| [2_compile_res_hpc](2_main_simulation/2_compile_res_hpc.R)      | Takes raw outputs from simulations and summarizes cumulative outcomes over 10-years|Compile results &summarise| stored in  [0_res](2_main_simulation/0_res)
-| [2_compile_annual_hpc](2_main_simulation/2_compile_annual_hpc.R)      | Takes raw outputs from simulations and summarizes for annual NNT stored in  [0_res](2_main_simulation/0_res)|Compile results &summarise|
-| [3_plots](2_main_simulation/3_plots.Rmd)      | Takes summarized outputs in [0_res](2_main_simulation/0_res) and makes plots/tables in manuscript|Make figures|
-| [9_last_Rrand](2_main_simulation/9_last_Rrand.RDS)      | Distribution of compartments at end of calibration|Model input|
-| [9_mixing_matrix_gmix](2_main_simulation/9_mixing_matrix_gmix.R)      | Social mixing matrix input|Model input|
-| [9_spec_humid](2_main_simulation/9_spec_humid.csv)      | Specific humidity over calendar year|Model input|
+| [0_model/0_model_code_sero](0_model/0_model_code_sero.R)           |Model code function using serology to trigger vaccinations| Serology-triggered models|
+| [0_model/0_model_setup](0_model/0_model_setup.R)        | Setup model with seroprevalence vax trigger | Sero-trigger models|
+| [0_model/0_model_setup_hiescape](0_model/0_model_setup_hiescape.R) |Setup model with seroprevalence vax trigger & high immune escape| Sero-trigger models|
+| [0_model/0_model_setup_randtime](0_model/0_model_setup_randtime.R) |Setup model with seroprevalence vax trigger & randomly-timed epidemics| Sero-trigger models|
+| [0_model/1_model_code_int](0_model/1_model_code_int.R)           |Model code function with fixed-time vaccinations| Fixed-time models|
+| [0_model/1_model_setup](0_model/1_model_setup.R)        | Setup model with fixed-time trigger | Fixed-time models|
+| [0_model/1_model_setup_hiescape](0_model/1_model_setup_hiescape.R) |Setup model with fixed-time vax trigger& high immune escape|Fixed-time models|
+| [0_model/0_model_setup_randtime](0_model/0_model_setup_randtime.R) |Setup model with fixed-time vax trigger & randomly-timed epidemics|Fixed-time models|
+| [9_last_Rrand](0_model/9_last_Rrand.RDS)      | Distribution of compartments at end of calibration|Model input|
+| [9_mixing_matrix_gmix](0_model/9_mixing_matrix_gmix.R)      | Social mixing matrix input|Model input|
+| [9_spec_humid](0_model/9_spec_humid.csv)      | Specific humidity over calendar year|Model input||
+[0_postprocess/0_case_sero_death_timeseries](0_postprocess/0_case_sero_death_timeseries.R)      | Takes raw outputs from models and summarize into time-series|Compile results &summarise| 
+| [0_postprocess/0_imm_timeseries](0_postprocess/0_imm_timeseries.R)      | Takes raw outputs from simulations and summarize into time-series (immune landscape) |Compile results &summarise|
+| [0_postprocess/0_nnt_sero](0_postprocess/0_nnt_sero.R)      | Takes raw outputs from simulations and summarize results for NNV |Compile results &summarise|
 
 ## Sensitivity analysis
 The structure of code for the sensitivity analysis repicate the same structure as the main analysis. The following sensitiivty analysis were conducted
