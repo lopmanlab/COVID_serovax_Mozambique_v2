@@ -29,4 +29,4 @@ The structure of code for the sensitivity analysis repicate the same structure a
 * [High immune escape where future waves are primarily driven by increasingly transmissible variants](5_hiescape)
 * [Varying rate of waning immunity](6_waneimmune)
 ## Model calibration
-The code used for model calibration implemented using Approximate Bayesian Approach can be found in [0_calibration](1_calibration)
+The code used for model calibration implemented using Approximate Bayesian Approach can be found in [0_calibration](0_calibration)
