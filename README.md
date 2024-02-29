@@ -25,6 +25,18 @@ The model code and processing pipeline is used for all of the scenario analysis 
 | [0_postprocess/0_imm_timeseries](0_postprocess/0_imm_timeseries.R)      | Takes raw outputs from simulations and summarize into time-series (immune landscape) |Compile results &summarise|
 | [0_postprocess/0_nnt_sero](0_postprocess/0_nnt_sero.R)      | Takes raw outputs from simulations and summarize results for NNV |Compile results &summarise|
 
+### Sample folder structure for model input/output and result generation for a single scenario
+| File                   | Description |
+| ---------------------- | ------------- |
+| [0_plot](1_main/0_plot)|Plots and figures from scenario|
+| [0_res](1_main/0_res)|Summarized results from scripts in [0_post_process](0_postprocess)|
+| [0_sweep_sero](1_main/0_sweep_imm4_foisp0.7.RDS)|Data frame of model parameter inputs for serology-triggered vax scenarios|
+| [0_sweep_int](1_main/0_sweep_imm4_foisp0.7_int.RDS)|Data frame of model parameter inputs for fixed-time vax scenarios|
+| [2_combine_res_vax](1_main/2_combine_res_vax.R)|Combine model runs and summarise with scripts in 0_postprocess[0_postprocess]|
+| [3_plots](1_main/3_plots)|Time series plots and tables|
+| [3_plot_nnt](1_main/3_plot_nnt)|Plots and tables for NNV|
+| [3_plots_corr](1_main/3_plots_corr)|Plots and tables for correlation|
+
 ## Sensitivity analysis
 The structure of code for the sensitivity analysis repicate the same structure as the main analysis. The following sensitiivty analysis were conducted
 
