@@ -23,8 +23,10 @@ Code for the main modeling work and analysis can be found in [0_model](https://g
 ## Sensitivity analysis
 The structure of code for the sensitivity analysis repicate the same structure as the main analysis. The following sensitiivty analysis were conducted
 
-* [Varying rate of antibody waning](3_sens_abwaning)
-* [High immune escape where future waves are primarily driven by increasingly transmissible variants](4_sens_hiescape)
-* [Randomly-timed annual epidemics as opposed to seasonal epidemics](5_sens_randtime)
+* [Varying rate of waning anitbody](2_kappasweep)
+* [Varying decreased susceptibility among seropositive](3_foisweep)
+* [Randomly-timed annual epidemics as opposed to seasonal epidemics](4_randtime)
+* [High immune escape where future waves are primarily driven by increasingly transmissible variants](5_hiescape)
+* [Varying rate of waning immunity](6_waneimmune)
 ## Model calibration
-The code used for model calibration implemented using Approximate Bayesian Approach can be found in [1_calibration](1_calibration)
+The code used for model calibration implemented using Approximate Bayesian Approach can be found in [0_calibration](1_calibration)
