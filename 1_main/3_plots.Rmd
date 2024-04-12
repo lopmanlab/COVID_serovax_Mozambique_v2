@@ -76,15 +76,47 @@ p1 <- med_inc %>%
     scale_fill_manual("",values="gray78")+
   #ggtitle("10-year epidemic projection")+
   xlab("") + ylab("Cases per 100")+
-  facet_wrap(~lab1,nrow=1)+plot_theme
+  facet_wrap(~lab1,nrow=1)+
+  
+  theme(plot.title = element_text(size=14),
+                      axis.text = element_text(size=14),
+                      axis.text.x=element_text(angle = 45,hjust=1),
+                      axis.title = element_text(size=16),
+                      strip.text = element_text(size=14),
+                      legend.text = element_text(size=14))+theme_frame
 
-
-png("0_plot/9_inc_strip.png",width = 12,height = 5,units="in",res=400)
+png("0_plot/9_inc_strip.png",width = 12,height = 3,units="in",res=400)
 p1
 dev.off()
 
-p1<- p1+theme(strip.text = element_blank())
+p1<- p1+  plot_theme+theme(strip.text = element_blank())
 p1
+
+
+##No vax alone
+p1a <- med_inc %>% 
+     left_join(scen_lab)%>%
+    filter(sero_thresh=="0")%>%
+    ggplot()+
+    geom_ribbon(aes(x=date, ymin=prob_25, ymax=prob_75, fill="Range"))+
+     theme_bw()+geom_line(aes(x=date, y=med, colour = "Cases \n per 100"), size=1)+  
+
+    scale_colour_manual("",values="#EF3B2C")+
+    scale_fill_manual("",values="gray78")+
+  #ggtitle("10-year epidemic projection")+
+  xlab("Year") + ylab("Cases per 100")+
+  theme(plot.title = element_text(size=16),
+                      axis.text = element_text(size=14),
+                      axis.text.x=element_text(angle = 45,hjust=1),
+                      axis.title = element_text(size=16),
+                      strip.text = element_text(size=14),
+                      legend.text = element_text(size=14))+theme_frame+
+  ggtitle("Epidemic trajectory")
+
+png("0_plot/9_inc_novax.png",width = 7,height = 5,units="in",res=400)
+p1a
+dev.off()
+
 ```
 
 ## Deaths per capita
@@ -124,7 +156,7 @@ dev.off()
 
 ## Sero facet wrap
 ```{r}
-sero1 <- readRDS("0_res/vaxsero_sero.RDS")
+sero1 <- readRDS("0_res/vaxsero_sero.RDS")%>%select(-r02, -r03)
 sero2 <- readRDS("0_res/vaxint_sero.RDS")
 sero<- rbind(sero1, sero2)
 
@@ -164,17 +196,42 @@ p2 <-  ggplot()+
                                    labels=c("Adult",
                                             "Child",
                                             "Older \nadults"))+
-        xlab("")+ plot_theme+
-                theme(legend.text = element_text(size=12),
-                       strip.text = element_text(size=16),
-                      plot.margin = unit(c(0,0,-0.5,1), "line"))+
- 
-  ylab("Seroprevalence\n by age(%)")
+        xlab("Year")+ylab("Seroprevalence\n by age(%)")+
+  
+      theme(plot.title = element_text(size=14),
+                      axis.text = element_text(size=14),
+                      axis.text.x=element_text(angle = 45,hjust=1),
+                      axis.title = element_text(size=16),
+                      strip.text = element_text(size=14),
+                      legend.text = element_text(size=14))+theme_frame
 
 
-
-png("0_plot/9_sero_strip.png",width = 12,height = 5,units="in",res=400)
+png("0_plot/9_sero_strip.png",width = 12,height = 3,units="in",res=400)
 p2
+dev.off()
+
+##No vax alone
+p2a <- med_inc %>% 
+     left_join(scen_lab)%>%
+    filter(sero_thresh=="0")%>%
+    ggplot()+
+    geom_ribbon(aes(x=date, ymin=prob_25, ymax=prob_75, fill="Range"))+
+     theme_bw()+geom_line(aes(x=date, y=med, colour = "Cases \n per 100"), size=1)+  
+
+    scale_colour_manual("",values="#EF3B2C")+
+    scale_fill_manual("",values="gray78")+
+  #ggtitle("10-year epidemic projection")+
+  xlab("Year") + ylab("Cases per 100")+
+  theme(plot.title = element_text(size=16),
+                      axis.text = element_text(size=14),
+                      axis.text.x=element_text(angle = 45,hjust=1),
+                      axis.title = element_text(size=16),
+                      strip.text = element_text(size=14),
+                      legend.text = element_text(size=14))+theme_frame+
+  ggtitle("Epidemic trajectory")
+
+png("0_plot/9_inc_novax.png",width = 7,height = 5,units="in",res=400)
+p1a
 dev.off()
 ```
 
