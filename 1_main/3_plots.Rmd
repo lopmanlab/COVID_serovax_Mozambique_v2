@@ -210,28 +210,33 @@ png("0_plot/9_sero_strip.png",width = 12,height = 3,units="in",res=400)
 p2
 dev.off()
 
+sero_med1 <- sero_med%>%filter(scen=="No vax")
+sero_range_a1<- sero_range_a%>%filter(scen=="No vax")
+sero_range_c1<- sero_range_c%>%filter(scen=="No vax")
+sero_range_e1<- sero_range_e%>%filter(scen=="No vax")
 ##No vax alone
-p2a <- med_inc %>% 
-     left_join(scen_lab)%>%
-    filter(sero_thresh=="0")%>%
-    ggplot()+
-    geom_ribbon(aes(x=date, ymin=prob_25, ymax=prob_75, fill="Range"))+
-     theme_bw()+geom_line(aes(x=date, y=med, colour = "Cases \n per 100"), size=1)+  
-
-    scale_colour_manual("",values="#EF3B2C")+
-    scale_fill_manual("",values="gray78")+
-  #ggtitle("10-year epidemic projection")+
-  xlab("Year") + ylab("Cases per 100")+
-  theme(plot.title = element_text(size=16),
+p2a <- ggplot()+
+      geom_ribbon(data=sero_range_c1,aes(x=date, ymin=prob25, ymax=prob75), fill="gray78",alpha=0.5)+
+      geom_ribbon(data=sero_range_a1,aes(x=date, ymin=prob25, ymax=prob75), fill="gray78", alpha=0.5)+
+      geom_ribbon(data=sero_range_e1,aes(x=date, ymin=prob25, ymax=prob75), fill="gray78", alpha=0.5)+
+      geom_line(data=sero_med1,aes(x=date, y = med, col = sero),size=1)+       
+      ylim(0,100) +theme_bw()+
+      scale_color_manual(values = c("#4292C6","#C6DBEF","#08306B"),
+                                   labels=c("Adult",
+                                            "Child",
+                                            "Older \nadults"))+
+        xlab("Year")+ylab("Seroprevalence\n by age(%)")+
+  
+      theme(plot.title = element_text(size=14),
                       axis.text = element_text(size=14),
                       axis.text.x=element_text(angle = 45,hjust=1),
                       axis.title = element_text(size=16),
                       strip.text = element_text(size=14),
                       legend.text = element_text(size=14))+theme_frame+
-  ggtitle("Epidemic trajectory")
+  ggtitle("Seroprevalence")
 
-png("0_plot/9_inc_novax.png",width = 7,height = 5,units="in",res=400)
-p1a
+png("0_plot/9_sero_novax.png",width = 7,height = 5,units="in",res=400)
+p2a
 dev.off()
 ```
 

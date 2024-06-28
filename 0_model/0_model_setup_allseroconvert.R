@@ -264,12 +264,12 @@ model_sims <- function(i){
   
   ##Serology
   # Probability of seroconversion after infection
-  pi <- 0.9
+  pi <- 1
   
   # Prob of seroconversion after vaccination
   rho_v1 <- 0.85
   rho_v2 <- 0.6 ## Among those seronegative after first dose
-  rho_v3 <-0.9  ##Among those seronegative after second dose, or waned
+  rho_v3 <-1  ##Among those seronegative after second dose, or waned
   ##Seroreversion
   #kappa_c <- 1/250
   #kappa_a <- 1/250
