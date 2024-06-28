@@ -1,16 +1,13 @@
+library(dplyr)
+library(lhs) ##Needs the right RJAGs version
+
+
 ##Calculating r0 from next generation matrix
 getr0 <- function(bl,rel_c,rel_a,rel_e){
   ## Mixing matrix
   ## The columns are contact age group (infectee) whereas the rows are participant age groups (infector)
   ## Flipped from the visualizations
-  #CM_u <- matrix(c(3.99,3.204,1.603,2.384, 4.316, 2.410,0.651,1.316,1.472 ),
-  #               nrow = 3,
-  #               dimnames = list(x=c("0-17","18-59","50+"), y=c("0-17","18-59","50+")))
-  
-  #CM_r <- matrix(c(6.889, 4.328, 2.313, 2.766, 5.812,3.179,0.724,1.558, 2.112), 
-  #               nrow = 3, 
-  #               dimnames = list(x=c("0-17","18-59","50+"), y=c("0-17","18-59","50+")))
-  
+
   CM_u <- matrix(c(4.369811, 3.579099, 3.581121,
                    2.689841, 3.910767, 4.198945,
                    0.6558402,1.0232138,1.5153399),
@@ -80,4 +77,28 @@ getr0 <- function(bl,rel_c,rel_a,rel_e){
   ##Dominant eigenvalue =1.29
   eigen<-max(eigen(as.matrix(m_ngm))$values)
   print(eigen)
+}
+
+getr0(0.07476, 0.35939,0.47748,1) ##R0 = 2.1136
+
+## Loop through a bunch of parameter values and find the corresponding R0 value
+## Use Latin hypercube sampling over a uniform distribution over plausible values
+#Setting bounds for drawing relative age-specific infectiousness from uniform distribution
+set.seed(12345)
+total.set.size <- 20000  ##set to large number so we can filter on those that give R0 in a reasonable range
+l <- randomLHS(total.set.size, 3)
+
+relbeta_c_parms<- c(0.35,0.39) # relative infectiousness of children compared to older adults
+relbeta_a_parms<- c(0.40,0.53) # relative infectiousness of adults compared to older adults
+bl_parms <- c(0.071,0.077)     # beta for older adults
+
+relbeta_c <- round((l[,1]*(relbeta_c_parms[2]-relbeta_c_parms[1]))+relbeta_c_parms[1],5)
+relbeta_a <- round((l[,2]*(relbeta_a_parms[2]-relbeta_a_parms[1]))+relbeta_a_parms[1],5)
+bl        <- round((l[,3]*(bl_parms[2]-bl_parms[1]))+bl_parms[1],5)
+
+sweep <- data.frame(relbeta_c=relbeta_c,relbeta_a=relbeta_a, bl=bl)
+
+##Figure out the estimated r0 for each combination
+for(i in 1:nrow(sweep)){
+  sweep$r0[i]<-getr0(bl=sweep$bl[i],rel_c = sweep$relbeta_c[i],rel_a = sweep$relbeta_a[i],rel_e=1)
 }
